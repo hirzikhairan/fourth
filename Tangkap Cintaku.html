@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mini Game: Tangkap Hatinya</title>
+    <!-- Memuat Tailwind CSS untuk styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Memuat font Fredoka untuk kesan lucu dan membulat -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Pengaturan tema umum */
+        body {
+            font-family: 'Fredoka', sans-serif;
+            background-color: #e0fbfc;
+            /* Pola polkadot halus */
+            background-image: radial-gradient(#bde0fe 15%, transparent 15%);
+            background-size: 25px 25px;
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            touch-action: none; /* Mencegah layar ter-scroll saat main di HP */
+        }
+
+        /* Container utama game */
+        .game-wrapper {
+            background-color: #f8faff;
+            border: 8px solid #82c0f9;
+            border-radius: 35px;
+            box-shadow: 0 15px 0px #a2d2ff;
+            width: 100%;
+            max-width: 450px;
+            height: 85vh;
+            max-height: 800px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* Header UI (Skor) */
+        .game-header {
+            background-color: #bde0fe;
+            border-bottom: 5px solid #82c0f9;
+            padding: 15px 25px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+
+        .score-board {
+            background: white;
+            border: 4px solid #82c0f9;
+            border-radius: 20px;
+            padding: 8px 25px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #1e3a8a;
+            box-shadow: 0 5px 0 #a2d2ff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Area Canvas */
+        #canvas-container {
+            flex: 1;
+            position: relative;
+            background: linear-gradient(180deg, #e0fbfc 0%, #cce3fe 100%);
+        }
+
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Overlay Pop-up (Layar Mulai & Layar Menang) */
+        .overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(162, 210, 255, 0.6);
+            backdrop-filter: blur(5px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            padding: 20px;
+            text-align: center;
+            transition: opacity 0.3s;
+        }
+
+        .modal-box {
+            background-color: white;
+            border: 6px solid #82c0f9;
+            border-radius: 30px;
+            padding: 35px 25px;
+            box-shadow: 0 12px 0 #a2d2ff;
+            width: 90%;
+            transform: scale(1);
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0.5); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Tombol ala Game */
+        .btn-play {
+            background-color: #82c0f9;
+            border: none;
+            border-radius: 20px;
+            box-shadow: 0 8px 0 #5c7cfa;
+            color: white;
+            font-size: 1.3rem;
+            font-weight: 700;
+            padding: 15px 35px;
+            cursor: pointer;
+            transition: all 0.1s;
+            margin-top: 20px;
+            letter-spacing: 1px;
+            font-family: 'Fredoka', sans-serif;
+        }
+
+        .btn-play:active {
+            transform: translateY(8px);
+            box-shadow: 0 0 0 #5c7cfa;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* Efek teks minus skor */
+        .score-minus-anim {
+            animation: shake 0.3s ease-in-out;
+            color: #ef4444 !important; /* Merah saat minus */
+        }
+
+        @keyframes shake {
+            0% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            50% { transform: translateX(5px); }
+            75% { transform: translateX(-5px); }
+            100% { transform: translateX(0); }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="game-wrapper">
+        <!-- Papan Skor -->
+        <div class="game-header">
+            <div class="score-board" id="score-board">
+                ⭐ Skor: <span id="score">0</span> / 150
+            </div>
+        </div>
+
+        <!-- Wadah Game -->
+        <div id="canvas-container">
+            <canvas id="gameCanvas"></canvas>
+            
+            <!-- Layar Awal -->
+            <div id="startScreen" class="overlay">
+                <div class="modal-box">
+                    <div class="text-6xl mb-4 animate-bounce">🧺💖</div>
+                    <h1 class="text-3xl font-bold text-blue-800 mb-3">Tangkap Cintaku!</h1>
+                    <p class="text-md text-blue-600 mb-4 font-medium leading-relaxed">
+                        Geser keranjangnya ya, buat nangkep semua cintakuhh (❤️💖✨).<br><br>
+                        Jangan nangkep hati yang retak kalo gamau hubungan kita retak (💔).
+                    </p>
+                    <button class="btn-play" onclick="startGame()">Mulai</button>
+                </div>
+            </div>
+
+            <!-- Layar Menang / Pesan dari Z -->
+            <div id="winScreen" class="overlay hidden">
+                <div class="modal-box border-pink-400 bg-pink-50" style="box-shadow: 0 12px 0 #ffb3c6;">
+                    <div class="text-6xl mb-4">🎉🎉</div>
+                    <h2 class="text-3xl font-bold text-pink-600 mb-3">Yeeyy menangg</h2>
+                    <div class="bg-white p-5 rounded-2xl border-4 border-pink-200 mt-4 mb-5 text-left">
+                        <p class="text-md text-pink-800 font-medium leading-relaxed">
+                            <strong>pesan buat yang udah menang niie</strong><br><br>
+                            "Aku sayang banget sama kamu, lebih besar daripada skor yang ada di game ini! Thank u so much udah selalu nangkep semua bentuk cinta q. 
+                            I love you soo muchh"
+                        </p>
+                    </div>
+                    <button class="btn-play" style="background-color:   #ff8fab; box-shadow: 0 8px 0 #ff5c8a;" onclick="resetGame()">Main Lagi</button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Setup Canvas
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const container = document.getElementById('canvas-container');
+
+        // Setup Elemen UI
+        const scoreEl = document.getElementById('score');
+        const scoreBoardEl = document.getElementById('score-board');
+        const startScreen = document.getElementById('startScreen');
+        const winScreen = document.getElementById('winScreen');
+
+        // Variabel Game State
+        let isPlaying = false;
+        let animationId;
+        let score = 0;
+        const targetScore = 150;
+        let frameCount = 0;
+        let items = [];
+        let baseSpeed = 1;
+
+        // Aset Emoji
+        const playerEmoji = '🧺';
+        const goodItems = ['❤️', '💖', '✨', '💙']; // Poin +10
+        const badItems = ['💔']; // Poin -10
+
+        // Objek Pemain (Keranjang)
+        const player = {
+            x: 0,
+            y: 0,
+            size: 65,
+            targetX: 0 // Target X untuk pergerakan halus (interpolasi)
+        };
+
+        // Fungsi mengatur ulang ukuran canvas jika layar berubah
+        function resizeCanvas() {
+            canvas.width = container.clientWidth;
+            canvas.height = container.clientHeight;
+            
+            // Posisikan pemain di tengah bawah pada awalnya
+            if (!isPlaying && player.x === 0) {
+                player.x = canvas.width / 2 - player.size / 2;
+                player.targetX = player.x;
+            }
+            player.y = canvas.height - player.size - 20;
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        
+        // Inisialisasi awal
+        window.onload = () => {
+            resizeCanvas();
+            drawPlayer();
+        };
+
+        // --- KONTROL PEMAIN ---
+        function movePlayer(xPos) {
+            // Memastikan keranjang tidak keluar dari batas layar
+            let newX = xPos - player.size / 2;
+            if (newX < 0) newX = 0;
+            if (newX + player.size > canvas.width) newX = canvas.width - player.size;
+            player.targetX = newX;
+        }
+
+        // Kontrol Mouse
+        canvas.addEventListener('mousemove', (e) => {
+            if(!isPlaying) return;
+            const rect = canvas.getBoundingClientRect();
+            movePlayer(e.clientX - rect.left);
+        });
+
+        // Kontrol Layar Sentuh (Mobile)
+        canvas.addEventListener('touchmove', (e) => {
+            if(!isPlaying) return;
+            e.preventDefault(); // Sangat penting agar HP tidak ikut terscroll
+            const rect = canvas.getBoundingClientRect();
+            movePlayer(e.touches[0].clientX - rect.left);
+        }, { passive: false });
+
+        // Kontrol Keyboard (Tombol Panah)
+        window.addEventListener('keydown', (e) => {
+            if(!isPlaying) return;
+            const moveAmount = 40;
+            if (e.key === 'ArrowLeft') movePlayer(player.x - moveAmount + player.size/2);
+            if (e.key === 'ArrowRight') movePlayer(player.x + moveAmount + player.size/2);
+        });
+
+        // --- FUNGSI MENGGAMBAR ---
+        function drawPlayer() {
+            // Pergerakan halus (lerping) dari x ke targetX
+            player.x += (player.targetX - player.x) * 0.25; 
+            
+            ctx.font = `${player.size}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            // Render keranjang
+            ctx.fillText(playerEmoji, player.x + player.size/2, player.y + player.size/2);
+        }
+
+        // Kelas Objek Jatuh (Hati)
+        class FallingItem {
+            constructor() {
+                this.size = 40;
+                this.x = Math.random() * (canvas.width - this.size);
+                this.y = -50;
+                
+                // Kecepatan jatuh acak, bertambah seiring waktu
+                this.speed = (Math.random() * 3 + 2.5) * baseSpeed; 
+                
+                // Peluang 25% muncul hati retak (minus poin)
+                this.isBad = Math.random() < 0.25; 
+                
+                if (this.isBad) {
+                    this.emoji = badItems[Math.floor(Math.random() * badItems.length)];
+                } else {
+                    this.emoji = goodItems[Math.floor(Math.random() * goodItems.length)];
+                }
+                this.markedForDeletion = false;
+            }
+
+            update() {
+                this.y += this.speed;
+                // Hilang kalau sudah melewati batas bawah layar
+                if (this.y > canvas.height + 50) {
+                    this.markedForDeletion = true;
+                }
+            }
+
+            draw() {
+                ctx.font = `${this.size}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(this.emoji, this.x + this.size/2, this.y + this.size/2);
+            }
+        }
+
+        // --- LOGIKA UTAMA GAME ---
+        function checkCollisions() {
+            items.forEach(item => {
+                // Algoritma Hitbox (Deteksi Tabrakan antara hati dan keranjang)
+                if (item.y + item.size > player.y + 10 && 
+                    item.y < player.y + player.size &&
+                    item.x + item.size > player.x && 
+                    item.x < player.x + player.size) 
+                {
+                    item.markedForDeletion = true; // Hati masuk keranjang
+                    
+                    if (item.isBad) {
+                        // Kena Hati Retak (-10)
+                        score -= 10;
+                        if (score < 0) score = 0; // Batas minimal skor adalah 0
+                        scoreEl.innerText = score;
+                        
+                        // Animasi teks goyang saat minus
+                        scoreBoardEl.classList.add('score-minus-anim');
+                        setTimeout(() => {
+                            scoreBoardEl.classList.remove('score-minus-anim');
+                        }, 300);
+
+                    } else {
+                        // Kena Hati Bagus (+10)
+                        score += 10;
+                        scoreEl.innerText = score;
+                        
+                        // Cek kondisi menang
+                        if (score >= targetScore) {
+                            score = targetScore;
+                            scoreEl.innerText = score;
+                            gameWin();
+                        }
+                    }
+                }
+            });
+        }
+
+        function spawnItems() {
+            // Frekuensi muncul item (spawn rate)
+            let spawnRate = Math.max(25, 50 - Math.floor(score/30)); 
+            if (frameCount % spawnRate === 0) {
+                items.push(new FallingItem());
+            }
+        }
+
+        // Loop Animasi Utama
+        function gameLoop() {
+            if (!isPlaying) return;
+
+            // Bersihkan kanvas tiap frame
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            spawnItems();
+            
+            // Update & Gambar semua item
+            items.forEach(item => {
+                item.update();
+                item.draw();
+            });
+            
+            // Buang item yang ditandai untuk dihapus (menghemat memori)
+            items = items.filter(item => !item.markedForDeletion);
+            
+            drawPlayer();
+            checkCollisions();
+            
+            frameCount++;
+            
+            // Tingkatkan kecepatan perlahan jika skor naik (membuat makin seru)
+            baseSpeed = 1 + (score / 150) * 0.8;
+
+            // Panggil frame berikutnya
+            animationId = requestAnimationFrame(gameLoop);
+        }
+
+        // --- FUNGSI STATE GAME ---
+        function startGame() {
+            startScreen.classList.add('hidden');
+            winScreen.classList.add('hidden');
+            
+            // Kembalikan ke pengaturan awal
+            score = 0;
+            baseSpeed = 1;
+            items = [];
+            frameCount = 0;
+            scoreEl.innerText = score;
+            resizeCanvas();
+            
+            isPlaying = true;
+            gameLoop();
+        }
+
+        function gameWin() {
+            isPlaying = false;
+            cancelAnimationFrame(animationId);
+            
+            // Tampilkan layar menang sedikit jeda agar dramatis
+            setTimeout(() => {
+                winScreen.classList.remove('hidden');
+            }, 300);
+        }
+
+        function resetGame() {
+            startGame();
+        }
+
+    </script>
+</body>
+</html>
